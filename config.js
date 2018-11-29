@@ -1,6 +1,8 @@
 const config = {
     level: "movie",
-    time: 2000
+    time: 200000,
+    // from 1 - total match to 0 - no match
+    errorSensitivity: 0.75
 }
 
 const levels = {

@@ -143,6 +143,7 @@ class GamePage {
             answers: []
         }
         this.rounds = [...tasks];
+        this.rounds.forEach(task => task.matcher = FuzzySet(task.rightAnswer));
         this.currentRoundIndex = 0;
 
         this.page = document.querySelector(".game");
@@ -157,14 +158,34 @@ class GamePage {
     }
 
     answer(userInput) {
+        userInput = userInput.trim();
+
         this.dispatcher.deattach("answer");
         this.dispatcher.deattach("replay");
+
         const round = this.rounds[this.currentRoundIndex];
-        const isRight = round.rightAnswer.some(el => el === userInput.toLowerCase());
-        this.result.answers.push({ userInput: userInput ? userInput : "Нет ответа", isRight: isRight });
+        const isRight = this.resolveMatch(round.matcher.get(userInput));
+
+        this.result.answers.push({
+            userInput: userInput ? userInput : "Нет ответа",
+            isRight: isRight
+        });
+
         const score = isRight ? round.factor : 0;
         this.nextRound(score);
         //isRight ? this.nextRound(round.factor) : this.end();
+    }
+
+    resolveMatch(match) {
+        if (!match)
+            return false;
+
+        for (let [score, value] of match) {
+            if (score >= config.errorSensitivity) {
+                return true;
+            }
+        }
+        return false;
     }
 
     replay(movie) {
