@@ -7,14 +7,29 @@ function shuffle(a) {
 }
 
 class Storage {
-    static save(name, email, score, answers) {
+
+    static init(name, email, tasks) {
         const data = Storage.select();
-        data[name] = {
+        data[name] = Object.assign(data[name] || {}, {
+            name,
+            email,
+            tasks,
+            score: 0,
+            answers: []
+        });
+
+        localStorage.setItem("devCharades", JSON.stringify(data));
+        return data[name];
+    }
+
+    static save({name, email, score, answers}) {
+        const data = Storage.select();
+        data[name] = Object.assign(data[name] || {}, {
             name,
             email,
             score,
             answers
-        }
+        });
 
         localStorage.setItem("devCharades", JSON.stringify(data));
     }
@@ -63,7 +78,7 @@ class Game {
             this.level = shuffle(levels[config.level]);
             const user = await new RegistrationPage(this.dispatcher).run();
             const result = await new GamePage(this.dispatcher, user, this.config, this.level).run();
-            Storage.save(result.name, result.email, result.score, result.answers);
+            Storage.save(result);
             await new ResultPage(this.dispatcher, result).run();
         }
     }
@@ -107,14 +122,14 @@ class RegistrationPage {
     }
 
     run() {
-        this.dispatcher.attach("register", this.register.bind(this))
+        this.dispatcher.attach("register", this.register.bind(this));
         this.page.classList.remove("invisible");
         return new Promise(resolve => this.resolver = resolve);
     }
 
     end(user) {
         this.dispatcher.deattach("register");
-        this.page.classList.add("invisible")
+        this.page.classList.add("invisible");
         this.form.reset();
         this.resolver(user);
     }
@@ -136,15 +151,14 @@ class GamePage {
     constructor(dispatcher, user, config, tasks) {
         this.resolver = null;
         this.dispatcher = dispatcher;
-        this.result = {
-            name: user.name,
-            email: user.email,
-            score: 0,
-            answers: []
-        }
-        this.rounds = [...tasks];
+
+        this.result = Storage.get(user.name);
+        if (!this.result)
+            this.result = Storage.init(user.name, user.email, tasks);
+
+        this.rounds = [...this.result.tasks];
         this.rounds.forEach(task => task.matcher = FuzzySet(task.rightAnswer));
-        this.currentRoundIndex = 0;
+        this.currentRoundIndex = this.result.answers.length;
 
         this.page = document.querySelector(".game");
         this.taskContainer = document.querySelector(".task");
@@ -195,23 +209,31 @@ class GamePage {
     renderRound(number) {
         this.clearTask();
         this.userInput.value = "";
-        this.taskContainer.appendChild(this.createTaskTag(this.rounds[number]));
+        this.userInput.focus();
+        let movie = this.createTaskTag(this.rounds[number]);
+        if (movie)
+            this.taskContainer.appendChild(movie);
+
         this.dispatcher.attach("answer", this.answer.bind(this));
         this.dispatcher.attach("replay", this.replay.bind(this));
+
+        if (this.currentRoundIndex === this.rounds.length) {
+            return this.end();
+        }
     }
 
     nextRound(factor) {
         this.result.score += factor;
         this.currentRoundIndex++;
         this.userInput.value = "";
-        if (this.currentRoundIndex === this.rounds.length) {
-            return this.end();
-        }
+
+        Storage.save(this.result);
+
         this.renderRound(this.currentRoundIndex);
     }
 
     createTaskTag(task) {
-        if (task.src) {
+        if (task && task.src) {
             const movie = document.createElement("video");
             movie.src = task.src;
             movie.width = 640;
@@ -229,10 +251,11 @@ class GamePage {
     }
 
     run() {
+        let promise = new Promise(resolve => this.resolver = resolve)
         this.initializeView();
-        this.renderRound(0);
+        this.renderRound(this.currentRoundIndex);
         this.timer.start();
-        return new Promise(resolve => this.resolver = resolve);
+        return promise;
     }
 
     end() {
