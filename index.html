@@ -35,8 +35,8 @@
                 <form class="form">
                     <input class="input" autocomplete="off" type="text" id="userInput" name="userInput" placeholder="Ответ" autofocus />
 
-                    <button class="replay button" type="button" onclick="game.push('replay', document.querySelector('video'));">Ещё
-                        раз</button>
+                    <button class="give-up button" type="button" onclick="game.push('end');">Выход</button>
+                    <button class="replay button" type="button" onclick="game.push('replay', document.querySelector('video'));">Ещё раз</button>
                     <button class="answer button" type="submit" onclick="game.push('answer', document.getElementById('userInput').value)">Дальше</button>
                 </form>
             </div>
@@ -44,6 +44,7 @@
 
         <div class="gameover page invisible">
             <div>Ты набрал&nbsp;<span class="score"></span> очков</div>
+            <div class="total-score-container invisible">Всего&nbsp;<span class="total-score"></span> очков</div>
             <div id="result" class="result"></div>
             <button class="button" onclick="game.push('end');">На главную</button>
         </div>

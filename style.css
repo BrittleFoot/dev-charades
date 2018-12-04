@@ -16,7 +16,7 @@ body {
 
 video {
     border: 3px solid #000;
-    border-radius: 10px; 
+    border-radius: 10px;
 }
 
 .buttonWrapper {
@@ -60,7 +60,7 @@ button {
 
 .input {
     display: block;
-    width: 300px;
+    width: 450px;
     padding: 0.8em;
     font-size: 1em;
     margin: 0 auto 1.5em;
@@ -111,6 +111,10 @@ button {
 }
 
 .score {
+    font-weight: 600;
+}
+
+.total-score {
     font-weight: 600;
 }
 

@@ -93,16 +93,21 @@ class Game {
             let user = await new RegistrationPage(this.dispatcher).run();
 
             let gamePage = new GamePage(
-                this.dispatcher, 
-                user, 
-                this.config, 
+                this.dispatcher,
+                user,
+                this.config,
                 this.level
             );
 
             let result = await gamePage.run()
             Storage.save(result);
 
-            await new ResultPage(this.dispatcher, result, gamePage.startIndex).run();
+            await new ResultPage(
+                this.dispatcher,
+                result,
+                gamePage.startIndex,
+                gamePage.prevScore
+            ).run();
         }
     }
 }
@@ -178,6 +183,8 @@ class GamePage {
         this.result = Storage.get(user.email);
         if (!this.result)
             this.result = Storage.init(user.name, user.email, tasks);
+        else
+            this.prevScore = this.result.score
 
         this.rounds = [...this.result.tasks];
         this.rounds.forEach(task => task.matcher = FuzzySet(task.rightAnswer));
@@ -280,10 +287,16 @@ class GamePage {
         this.initializeView();
         this.renderRound(this.currentRoundIndex);
         this.timer.start();
+
+        this.dispatcher.attach("end", this.end.bind(this));
         return promise;
     }
 
     end() {
+        this.dispatcher.deattach("answer");
+        this.dispatcher.deattach("replay");
+        this.dispatcher.deattach("end");
+
         this.timer.stop();
         this.clearTask();
         this.page.classList.add("invisible");
@@ -292,12 +305,16 @@ class GamePage {
 }
 
 class ResultPage {
-    constructor(dispatcher, result, startIndex) {
+    constructor(dispatcher, result, startIndex, prevScore) {
         this.resolver = null;
-        this.startIndex = startIndex
+        this.startIndex = startIndex;
+        this.prevScore = prevScore;
         this.dispatcher = dispatcher;
         this.result = result;
         this.page = document.querySelector(".gameover");
+        this.scoreContainer = document.querySelector(".score");
+        this.totalScoreContainer = document.querySelector(".total-score");
+        this.totalScoreLine = document.querySelector(".total-score-container")
         this.scoreContainer = document.querySelector(".score");
         this.resultContainer = document.querySelector("#result");
     }
@@ -307,10 +324,9 @@ class ResultPage {
         answerItem.className = item.isRight ? "isRight" : "isWrong"
         answerItem.textContent = item.userInput;
 
-        if (answerItem.userInput === "Нет ответа") {
+        if (answerItem.userInput === "Нет ответа" || item.isRight) {
             answerItem.classList.add("invisible")
         }
-
 
         return answerItem;
     }
@@ -324,7 +340,20 @@ class ResultPage {
     run() {
         this.dispatcher.attach("end", this.end.bind(this));
         this.page.classList.remove("invisible");
-        this.scoreContainer.textContent = this.result.score;
+
+        let score = this.prevScore === undefined
+            ? this.prevScore
+            : this.result.score - this.prevScore;
+        let totalScore = this.result.score;
+
+        if (score === undefined) {
+            this.scoreContainer.textContent = totalScore;
+        } else {
+            this.totalScoreLine.classList.remove("invisible");
+            this.scoreContainer.textContent = score;
+            this.totalScoreContainer.textContent = totalScore;
+        }
+
         this.result.answers.slice(this.startIndex).map(item => {
             this.resultContainer.appendChild(this.createAnswerTag(item));
         })
@@ -341,8 +370,8 @@ class ResultPage {
 
 const forms = document.querySelectorAll('form');
 
-forms.forEach(form => 
-    form.addEventListener('submit', prevent)    
+forms.forEach(form =>
+    form.addEventListener('submit', prevent)
 )
 
 function prevent (e) {
