@@ -9,39 +9,52 @@ function shuffle(a) {
 class Storage {
 
     static init(name, email, tasks) {
-        const data = Storage.select();
-        data[name] = Object.assign(data[name] || {}, {
-            name,
+        name = name.trim();
+        email = Storage.canonize(email);
+        return Storage.map(email, data => Object.assign(data || {}, {
+            name: name || data.name,
             email,
             tasks,
             score: 0,
             answers: []
-        });
-
-        localStorage.setItem("devCharades", JSON.stringify(data));
-        return data[name];
+        }))
     }
 
-    static save({name, email, score, answers}) {
-        const data = Storage.select();
-        data[name] = Object.assign(data[name] || {}, {
-            name,
+    static save({email, score, answers}) {
+        email = Storage.canonize(email);
+        return Storage.map(email, data => Object.assign(data || {}, {
             email,
             score,
             answers
-        });
-
-        localStorage.setItem("devCharades", JSON.stringify(data));
+        }))
     }
 
-    static get(name) {
+    static get(email) {
         const data = Storage.select();
-        return data[name] || null;
+        return data[Storage.canonize(email)] || null;
+    }
+
+    static map(email, mapper) {
+        email = Storage.canonize(email)
+
+        let data = Storage.select();
+        let mapped = mapper(data[email]);
+        data[email] = mapped;
+        Storage.unselect(data);
+        return data[email];
     }
 
     static select() {
         const data = localStorage.getItem("devCharades")
         return data ? JSON.parse(data) : {};
+    }
+
+    static unselect(data) {
+        localStorage.setItem("devCharades", JSON.stringify(data));
+    }
+
+    static canonize(key) {
+        return (key || "").trim().toLowerCase();
     }
 }
 
@@ -67,6 +80,7 @@ class Game {
     constructor(config, levels) {
         this.config = config;
         this.dispatcher = new Dispatcher();
+        this.levels = levels
     }
 
     push(message, parameter) {
@@ -75,11 +89,20 @@ class Game {
 
     async run() {
         while (true) {
-            this.level = shuffle(levels[config.level]);
-            const user = await new RegistrationPage(this.dispatcher).run();
-            const result = await new GamePage(this.dispatcher, user, this.config, this.level).run();
+            this.level = shuffle(this.levels[this.config.level]);
+            let user = await new RegistrationPage(this.dispatcher).run();
+
+            let gamePage = new GamePage(
+                this.dispatcher, 
+                user, 
+                this.config, 
+                this.level
+            );
+
+            let result = await gamePage.run()
             Storage.save(result);
-            await new ResultPage(this.dispatcher, result).run();
+
+            await new ResultPage(this.dispatcher, result, gamePage.startIndex).run();
         }
     }
 }
@@ -152,13 +175,14 @@ class GamePage {
         this.resolver = null;
         this.dispatcher = dispatcher;
 
-        this.result = Storage.get(user.name);
+        this.result = Storage.get(user.email);
         if (!this.result)
             this.result = Storage.init(user.name, user.email, tasks);
 
         this.rounds = [...this.result.tasks];
         this.rounds.forEach(task => task.matcher = FuzzySet(task.rightAnswer));
         this.currentRoundIndex = this.result.answers.length;
+        this.startIndex = this.currentRoundIndex;
 
         this.page = document.querySelector(".game");
         this.taskContainer = document.querySelector(".task");
@@ -227,6 +251,7 @@ class GamePage {
         this.currentRoundIndex++;
         this.userInput.value = "";
 
+        // Сохранение после каждого ответа. Закомментируй, если влияет на производительность
         Storage.save(this.result);
 
         this.renderRound(this.currentRoundIndex);
@@ -267,8 +292,9 @@ class GamePage {
 }
 
 class ResultPage {
-    constructor(dispatcher, result) {
+    constructor(dispatcher, result, startIndex) {
         this.resolver = null;
+        this.startIndex = startIndex
         this.dispatcher = dispatcher;
         this.result = result;
         this.page = document.querySelector(".gameover");
@@ -280,6 +306,11 @@ class ResultPage {
         const answerItem = document.createElement("div");
         answerItem.className = item.isRight ? "isRight" : "isWrong"
         answerItem.textContent = item.userInput;
+
+        if (answerItem.userInput === "Нет ответа") {
+            answerItem.classList.add("invisible")
+        }
+
 
         return answerItem;
     }
@@ -294,7 +325,7 @@ class ResultPage {
         this.dispatcher.attach("end", this.end.bind(this));
         this.page.classList.remove("invisible");
         this.scoreContainer.textContent = this.result.score;
-        this.result.answers.map(item => {
+        this.result.answers.slice(this.startIndex).map(item => {
             this.resultContainer.appendChild(this.createAnswerTag(item));
         })
         return new Promise(resolve => this.resolver = resolve);
