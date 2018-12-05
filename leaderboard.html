@@ -20,6 +20,7 @@
                         <th class="leaderboardHeadCol">Имя</th>
                         <th class="leaderboardHeadCol">Почта</th>
                         <th class="leaderboardHeadCol">Счёт</th>
+                        <th class="leaderboardHeadCol">Попытки</th>
                     </tr>
                 </thead>
                 <tbody class="tbody">
@@ -46,21 +47,30 @@
                 const first = document.createElement("td");
                 first.textContent = (i + 1).toString();
                 first.className = "leaderboardCol";
+
                 const second = document.createElement("td");
                 second.textContent = x.name;
                 second.className = "leaderboardCol";
+
                 const third = document.createElement("td");
                 third.textContent = zvezdify(x.email);
                 third.className = "leaderboardCol";
+
                 const fouth = document.createElement("td");
                 fouth.textContent = x.score;
                 fouth.className = "leaderboardCol";
+
+                const five = document.createElement("td");
+                five.textContent = x.attempt;
+                five.className = "leaderboardCol";
+
                 const tr = document.createElement("tr");
                 tr.classList.add("row");
                 tr.appendChild(first);
                 tr.appendChild(second);
                 tr.appendChild(third);
                 tr.appendChild(fouth);
+                tr.appendChild(five);
                 container.appendChild(tr);
             })
         });

@@ -16,18 +16,20 @@ class Storage {
             email,
             tasks,
             score: 0,
-            answers: []
+            answers: [],
+            attempt: 0
         }))
     }
 
-    static save({name, email, score, answers}) {
+    static save({name, email, score, answers, attempt}) {
         email = Storage.canonize(email);
         name = (name || "").trim()
         return Storage.map(email, data => Object.assign(data || {}, {
             name,
             email,
             score,
-            answers
+            answers,
+            attempt
         }))
     }
 
@@ -202,6 +204,7 @@ class GamePage {
         this.movie = document.querySelector("#movie");
         this.userInput = document.querySelector("#userInput");
         this.timer = new Timer(config.time, this.end.bind(this));
+        this.result.attempt += 1;
     }
 
     initializeView() {
