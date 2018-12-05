@@ -20,9 +20,11 @@ class Storage {
         }))
     }
 
-    static save({email, score, answers}) {
+    static save({name, email, score, answers}) {
         email = Storage.canonize(email);
+        name = (name || "").trim()
         return Storage.map(email, data => Object.assign(data || {}, {
+            name,
             email,
             score,
             answers
@@ -180,11 +182,15 @@ class GamePage {
         this.resolver = null;
         this.dispatcher = dispatcher;
 
+        this.prevScore = NaN;
         this.result = Storage.get(user.email);
-        if (!this.result)
+        if (!this.result) {
             this.result = Storage.init(user.name, user.email, tasks);
-        else
-            this.prevScore = this.result.score
+        }
+        else {
+            this.prevScore = this.result.score;
+            this.result.name = user.name;
+        }
 
         this.rounds = [...this.result.tasks];
         this.rounds.forEach(task => task.matcher = FuzzySet(task.rightAnswer));
@@ -324,7 +330,7 @@ class ResultPage {
         answerItem.className = item.isRight ? "isRight" : "isWrong"
         answerItem.textContent = item.userInput;
 
-        if (answerItem.userInput === "Нет ответа" || item.isRight) {
+        if (item.userInput === "Нет ответа" || item.isRight) {
             answerItem.classList.add("invisible")
         }
 
@@ -341,12 +347,12 @@ class ResultPage {
         this.dispatcher.attach("end", this.end.bind(this));
         this.page.classList.remove("invisible");
 
-        let score = this.prevScore === undefined
+        let score = isNaN(this.prevScore)
             ? this.prevScore
             : this.result.score - this.prevScore;
         let totalScore = this.result.score;
 
-        if (score === undefined) {
+        if (isNaN(score)) {
             this.scoreContainer.textContent = totalScore;
         } else {
             this.totalScoreLine.classList.remove("invisible");
@@ -364,6 +370,8 @@ class ResultPage {
         this.clearAnswer();
         this.dispatcher.deattach("end");
         this.page.classList.add("invisible");
+        this.totalScoreLine.classList.add("invisible");
+        this.totalScoreContainer.textContent = "";
         this.resolver();
     }
 }
